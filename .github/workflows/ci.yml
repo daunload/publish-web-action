@@ -46,6 +46,10 @@ jobs:
             - name: Run unit tests
               run: pnpm test:unit
 
+            - name: Print event name
+              run: |
+                  echo "github.event_name (expr): ${{ github.event_name }}"
+
     comment:
         if: ${{ github.event_name == 'pull_request_target' }}
         needs: test
