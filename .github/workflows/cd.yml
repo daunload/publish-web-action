@@ -63,9 +63,11 @@ jobs:
                       errs.push(`❌ Request failed: ${req.url()} (${f.errorText})`);
                     });
 
+                    function sleep(ms) {
+                      return new Promise(resolve => setTimeout(resolve, ms));
+                    }
                     await page.goto('http://localhost:4173', { waitUntil: 'networkidle0' });
-                    await page.screenshot({ path: 'preview.png', fullPage: true });
-                    await page.waitForTimeout(3000);
+                    await sleep(3000);
                     await browser.close();
 
                     const out = errs.length
