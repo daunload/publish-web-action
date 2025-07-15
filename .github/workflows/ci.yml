@@ -1,0 +1,86 @@
+name: CI
+
+on:
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+    pull_request_target:
+        branches:
+            - main
+
+permissions:
+    contents: read
+    issues: write
+    pull-requests: write
+
+jobs:
+    test:
+        if: ${{ github.event_name != 'pull_request_target' }}
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: '.nvmrc'
+                  cache: pnpm
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 9
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Run unit tests
+              run: pnpm test:unit
+
+    comment:
+        if: ${{ github.event_name == 'pull_request_target' }}
+        needs: test
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            issues: write
+            pull-requests: write
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.pull_request.head.ref }}
+
+            - name: Comment on PR with commit list
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ secrets.GH_PAT }}
+                  script: |
+                      const { owner, repo } = context.repo;
+                      const prNumber = context.payload.pull_request.number;
+                      if (!prNumber) return;
+
+                      const { data: commits } = await github.rest.pulls.listCommits({
+                        owner,
+                        repo,
+                        pull_number: prNumber
+                      });
+
+                      const lines = commits
+                        .map(c => `- ${c.commit.message.split('\n')[0].trim()}`)
+                        .join('\n');
+
+                      const body = `Here are the commits included in this Pull Request: ${lines}`;
+
+                      await github.rest.issues.createComment({
+                        owner,
+                        repo,
+                        issue_number: prNumber,
+                        body
+                      });
