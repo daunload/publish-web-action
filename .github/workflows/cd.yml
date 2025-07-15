@@ -1,0 +1,67 @@
+name: Merge Preview Screenshot
+
+on:
+    pull_request:
+        types: [closed]
+jobs:
+    screenshot:
+        if: ${{ github.event.pull_request.merged == true }}
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            issues: write
+            pull-requests: write
+        steps:
+            - name: Checkout merged code
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+            - name: Install pnpm
+              run: npm install -g pnpm@9
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: '.nvmrc'
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build for production
+              run: pnpm build
+
+            - name: Start web server
+              run: |
+                  nohup pnpm preview & npx wait-on http://localhost:4173
+
+            - name: Take screenshot with Puppeteer
+              run: |
+                  node <<'JS'
+                  import fs from 'fs';
+                  import puppeteer from 'puppeteer';
+                  (async () => {
+                    const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
+                    const page = await browser.newPage();
+                    await page.goto('http://localhost:4173');
+                    await page.screenshot({ path: 'merge-screenshot.png', fullPage: true });
+                    await browser.close();
+                  })();
+                  JS
+
+            - name: Comment screenshot on PR
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  script: |
+                      const fs = require('fs');
+                      const img = fs.readFileSync('merge-screenshot.png');
+                      const b64 = img.toString('base64');
+                      const body = `### 🚀 Preview of merged site\n\n![merged preview](data:image/png;base64,${b64})`;
+                      await github.rest.issues.createComment({
+                        owner: context.repo.owner,
+                        repo:  context.repo.repo,
+                        issue_number: context.payload.pull_request.number,
+                        body,
+                      });
