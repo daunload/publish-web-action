@@ -51,7 +51,7 @@ jobs:
                   echo "github.event_name (expr): ${{ github.event_name }}"
 
     comment:
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         needs: test
         runs-on: ubuntu-latest
         permissions:
