@@ -49,6 +49,7 @@ jobs:
             - name: Print event name
               run: |
                   echo "github.event_name (expr): ${{ github.event_name }}"
+                  echo ${{ github.event_name == 'pull_request_target' }}
 
     comment:
         if: ${{ github.event_name == 'pull_request_target' }}
